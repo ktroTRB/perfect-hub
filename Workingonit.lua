@@ -1,4 +1,3 @@
-----upsated 
 --// Modern UI Library with WindUI-style syntax
 getgenv().namehub = "Private"
 local UserInputService = game:GetService('UserInputService')
@@ -36,6 +35,11 @@ end
 
 Library.is_mobile = detectMobile()
 Library.viewport_size = getViewportSize()
+
+-- Update viewport size on camera changes
+workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(function()
+    Library.viewport_size = getViewportSize()
+end)
 
 if not isfolder("cac hub") then
     makefolder("cac hub")
@@ -177,13 +181,20 @@ function Library:Notification(options)
 end
 
 function Library:CreateWindow(options)
-    -- Handle responsive sizing with mobile optimization
+    -- Calculate proper window size based on screen and device
+    local viewport = Library.viewport_size
     local default_size
+    
     if Library.is_mobile then
-        -- Mobile gets 90% of screen by default for better usability
-        default_size = UDim2.fromScale(0.9, 0.8)
+        -- Mobile: Use percentage with constraints
+        local mobile_width = math.min(viewport.X * 0.95, 500)
+        local mobile_height = math.min(viewport.Y * 0.85, 600)
+        default_size = UDim2.new(0, mobile_width, 0, mobile_height)
     else
-        default_size = UDim2.new(0, 699, 0, 426)
+        -- Desktop: Use fixed size with minimum constraints
+        local desktop_width = math.max(math.min(viewport.X * 0.7, 699), 480)
+        local desktop_height = math.max(math.min(viewport.Y * 0.8, 426), 350)
+        default_size = UDim2.new(0, desktop_width, 0, desktop_height)
     end
 
     local window_data = {
@@ -212,9 +223,9 @@ function Library:CreateWindow(options)
     Shadow.BorderSizePixel = 0
     Shadow.Position = UDim2.new(0.5, 0, 0.5, 0)
     
-    -- Calculate shadow size with mobile considerations
-    local shadow_padding_x = Library.is_mobile and 40 or 77
-    local shadow_padding_y = Library.is_mobile and 45 or 83
+    -- Calculate shadow size with proper constraints
+    local shadow_padding_x = Library.is_mobile and 20 or 40
+    local shadow_padding_y = Library.is_mobile and 25 or 45
     
     if window_data.is_responsive then
         -- For scale-based sizing, add relative padding for shadow effect
@@ -223,8 +234,10 @@ function Library:CreateWindow(options)
             window_data.Size.Y.Scale, window_data.Size.Y.Offset + shadow_padding_y
         )
     else
-        -- For offset-based sizing, use original calculation
-        Shadow.Size = UDim2.new(0, 776, 0, 509)
+        -- For offset-based sizing, calculate based on actual window size
+        local actual_width = window_data.Size.X.Offset + shadow_padding_x
+        local actual_height = window_data.Size.Y.Offset + shadow_padding_y
+        Shadow.Size = UDim2.new(0, actual_width, 0, actual_height)
     end
     Shadow.ZIndex = 0
     Shadow.Image = "rbxassetid://17290899982"
@@ -239,6 +252,15 @@ function Library:CreateWindow(options)
     Container.ClipsDescendants = true
     Container.Position = UDim2.new(0.5, 0, 0.5, 0)
     Container.Size = window_data.Size
+    
+    -- Add size constraint to prevent overflow
+    local SizeConstraint = Instance.new("UISizeConstraint")
+    SizeConstraint.MaxSize = Vector2.new(
+        Library.viewport_size.X * 0.98,
+        Library.viewport_size.Y * 0.95
+    )
+    SizeConstraint.MinSize = Vector2.new(350, 250)
+    SizeConstraint.Parent = Container
 
     local ContainerCorner = Instance.new("UICorner")
     ContainerCorner.CornerRadius = UDim.new(0, 20)
@@ -542,7 +564,12 @@ function Library:CreateWindow(options)
         UIGradient.Rotation = 20
         UIGradient.Parent = Fill
 
-        -- Create sections
+        -- Create sections with dynamic sizing
+        local content_width = Container.AbsoluteSize.X or window_data.Size.X.Offset
+        local section_width = Library.is_mobile and 
+            math.floor((content_width - 60) / 2) or 
+            math.floor((content_width - 80) / 2)
+        
         local left_section = Instance.new("ScrollingFrame")
         left_section.Name = "LeftSection"
         left_section.Active = true
@@ -550,9 +577,9 @@ function Library:CreateWindow(options)
         left_section.BackgroundTransparency = 1.000
         left_section.BorderColor3 = Color3.fromRGB(0, 0, 0)
         left_section.BorderSizePixel = 0
-        left_section.Position = UDim2.new(Library.is_mobile and 0.23 or 0.326180249, 0, 0.126760557, 0)
-        left_section.Size = UDim2.new(0, Library.is_mobile and 180 or 215, 0, 372)
-        left_section.AutomaticCanvasSize = Enum.AutomaticSize.XY
+        left_section.Position = UDim2.new(Library.is_mobile and 0.25 or 0.33, 0, 0.13, 0)
+        left_section.Size = UDim2.new(0, section_width, 1, -60)
+        left_section.AutomaticCanvasSize = Enum.AutomaticSize.Y
         left_section.ScrollBarImageColor3 = Color3.fromRGB(0, 0, 0)
         left_section.ScrollBarThickness = Library.is_mobile and 3 or 0
         left_section.Parent = Container
@@ -570,9 +597,9 @@ function Library:CreateWindow(options)
         right_section.BackgroundTransparency = 1.000
         right_section.BorderColor3 = Color3.fromRGB(0, 0, 0)
         right_section.BorderSizePixel = 0
-        right_section.Position = UDim2.new(Library.is_mobile and 0.58 or 0.662374794, 0, 0.126760557, 0)
-        right_section.Size = UDim2.new(0, Library.is_mobile and 180 or 215, 0, 372)
-        right_section.AutomaticCanvasSize = Enum.AutomaticSize.XY
+        right_section.Position = UDim2.new(Library.is_mobile and 0.67 or 0.66, 0, 0.13, 0)
+        right_section.Size = UDim2.new(0, section_width, 1, -60)
+        right_section.AutomaticCanvasSize = Enum.AutomaticSize.Y
         right_section.ScrollBarImageColor3 = Color3.fromRGB(0, 0, 0)
         right_section.ScrollBarThickness = Library.is_mobile and 3 or 0
         right_section.Parent = Container
@@ -651,12 +678,12 @@ function Library:CreateWindow(options)
             toggle.BackgroundColor3 = Color3.fromRGB(27, 28, 33)
             toggle.BorderColor3 = Color3.fromRGB(0, 0, 0)
             toggle.BorderSizePixel = 0
-            toggle.Size = UDim2.new(0, 215, 0, 37)
+            toggle.Size = UDim2.new(1, -10, 0, Library.is_mobile and 45 or 37)
             toggle.AutoButtonColor = false
             toggle.Font = Enum.Font.SourceSans
             toggle.Text = ""
             toggle.TextColor3 = Color3.fromRGB(0, 0, 0)
-            toggle.TextSize = 14.000
+            toggle.TextSize = Library.is_mobile and 16.000 or 14.000
 
             local UICorner = Instance.new("UICorner")
             UICorner.CornerRadius = UDim.new(0, 10)
@@ -768,12 +795,12 @@ function Library:CreateWindow(options)
             button.BackgroundColor3 = Color3.fromRGB(27, 28, 33)
             button.BorderColor3 = Color3.fromRGB(0, 0, 0)
             button.BorderSizePixel = 0
-            button.Size = UDim2.new(0, 215, 0, 37)
+            button.Size = UDim2.new(1, -10, 0, Library.is_mobile and 45 or 37)
             button.AutoButtonColor = false
             button.Font = Enum.Font.SourceSans
             button.Text = ""
             button.TextColor3 = Color3.fromRGB(0, 0, 0)
-            button.TextSize = 14.000
+            button.TextSize = Library.is_mobile and 16.000 or 14.000
             button.Parent = section
 
             local UICorner = Instance.new("UICorner")
