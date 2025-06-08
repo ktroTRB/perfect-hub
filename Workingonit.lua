@@ -1,3 +1,4 @@
+----upsated 
 --// Modern UI Library with WindUI-style syntax
 getgenv().namehub = "Private"
 local UserInputService = game:GetService('UserInputService')
@@ -17,8 +18,24 @@ local Library = {
     dragging = false,
     drag_position = nil,
     start_position = nil,
-    windows = {}
+    windows = {},
+    is_mobile = false,
+    viewport_size = nil
 }
+
+-- Mobile detection and viewport utilities
+local function detectMobile()
+    local UserInputService = game:GetService('UserInputService')
+    return UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+end
+
+local function getViewportSize()
+    local camera = workspace.CurrentCamera
+    return camera.ViewportSize
+end
+
+Library.is_mobile = detectMobile()
+Library.viewport_size = getViewportSize()
 
 if not isfolder("cac hub") then
     makefolder("cac hub")
@@ -160,13 +177,23 @@ function Library:Notification(options)
 end
 
 function Library:CreateWindow(options)
+    -- Handle responsive sizing with mobile optimization
+    local default_size
+    if Library.is_mobile then
+        -- Mobile gets 90% of screen by default for better usability
+        default_size = UDim2.fromScale(0.9, 0.8)
+    else
+        default_size = UDim2.new(0, 699, 0, 426)
+    end
+
     local window_data = {
         Title = options.Title or "Window",
-        Size = options.Size or UDim2.new(0, 699, 0, 426),
+        Size = options.Size or default_size,
         Theme = options.Theme or "Dark",
         tabs = {},
         current_tab = nil,
-        container = nil
+        container = nil,
+        is_responsive = options.Size and (options.Size.X.Scale > 0 or options.Size.Y.Scale > 0)
     }
 
     -- Create GUI structure
@@ -183,13 +210,17 @@ function Library:CreateWindow(options)
     Shadow.BackgroundTransparency = 1.000
     Shadow.BorderColor3 = Color3.fromRGB(0, 0, 0)
     Shadow.BorderSizePixel = 0
-    Shadow.Position = UDim2.new(0.508668244, 0, 0.5, 0)
-    -- Support any percentage-based sizing
-    if window_data.Size.X.Scale > 0 or window_data.Size.Y.Scale > 0 then
+    Shadow.Position = UDim2.new(0.5, 0, 0.5, 0)
+    
+    -- Calculate shadow size with mobile considerations
+    local shadow_padding_x = Library.is_mobile and 40 or 77
+    local shadow_padding_y = Library.is_mobile and 45 or 83
+    
+    if window_data.is_responsive then
         -- For scale-based sizing, add relative padding for shadow effect
         Shadow.Size = UDim2.new(
-            window_data.Size.X.Scale, window_data.Size.X.Offset + 77,
-            window_data.Size.Y.Scale, window_data.Size.Y.Offset + 83
+            window_data.Size.X.Scale, window_data.Size.X.Offset + shadow_padding_x,
+            window_data.Size.Y.Scale, window_data.Size.Y.Offset + shadow_padding_y
         )
     else
         -- For offset-based sizing, use original calculation
@@ -243,12 +274,12 @@ function Library:CreateWindow(options)
     TextLabel.BorderColor3 = Color3.fromRGB(0, 0, 0)
     TextLabel.BorderSizePixel = 0
     TextLabel.Position = UDim2.new(0.0938254446, 0, 0.496794879, 0)
-    TextLabel.Size = UDim2.new(0, 75, 0, 16)
+    TextLabel.Size = UDim2.new(0, Library.is_mobile and 100 or 75, 0, Library.is_mobile and 20 or 16)
     TextLabel.FontFace = Font.new("rbxasset://fonts/families/Montserrat.json", Enum.FontWeight.SemiBold)
     TextLabel.Text = window_data.Title
     TextLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
     TextLabel.TextScaled = true
-    TextLabel.TextSize = 14.000
+    TextLabel.TextSize = Library.is_mobile and 16.000 or 14.000
     TextLabel.TextWrapped = true
     TextLabel.TextXAlignment = Enum.TextXAlignment.Left
 
@@ -258,7 +289,7 @@ function Library:CreateWindow(options)
     Line.BackgroundColor3 = Color3.fromRGB(27, 28, 33)
     Line.BorderColor3 = Color3.fromRGB(0, 0, 0)
     Line.BorderSizePixel = 0
-    Line.Position = UDim2.new(0.296137333, 0, 0.0915492922, 0)
+    Line.Position = UDim2.new(Library.is_mobile and 0.215 or 0.296137333, 0, 0.0915492922, 0)
     Line.Size = UDim2.new(0, 2, 0, 387)
 
     local tabs = Instance.new("ScrollingFrame")
@@ -269,9 +300,9 @@ function Library:CreateWindow(options)
     tabs.BorderColor3 = Color3.fromRGB(0, 0, 0)
     tabs.BorderSizePixel = 0
     tabs.Position = UDim2.new(0, 0, 0.0915492922, 0)
-    tabs.Size = UDim2.new(0, 209, 0, 386)
+    tabs.Size = UDim2.new(0, Library.is_mobile and 150 or 209, 0, 386)
     tabs.ScrollBarImageColor3 = Color3.fromRGB(0, 0, 0)
-    tabs.ScrollBarThickness = 0
+    tabs.ScrollBarThickness = Library.is_mobile and 4 or 0
     tabs.Parent = Container
 
     local tabslist = Instance.new("UIListLayout")
@@ -370,10 +401,13 @@ function Library:CreateWindow(options)
 
         -- Calculate target shadow size for animation based on window size
         local targetShadowSize
-        if window_data.Size.X.Scale > 0 or window_data.Size.Y.Scale > 0 then
+        local shadow_padding_x = Library.is_mobile and 40 or 77
+        local shadow_padding_y = Library.is_mobile and 45 or 83
+        
+        if window_data.is_responsive then
             targetShadowSize = UDim2.new(
-                window_data.Size.X.Scale, window_data.Size.X.Offset + 77,
-                window_data.Size.Y.Scale, window_data.Size.Y.Offset + 83
+                window_data.Size.X.Scale, window_data.Size.X.Offset + shadow_padding_x,
+                window_data.Size.Y.Scale, window_data.Size.Y.Offset + shadow_padding_y
             )
         else
             targetShadowSize = UDim2.new(0, 776, 0, 509)
@@ -428,13 +462,13 @@ function Library:CreateWindow(options)
         tab.BackgroundColor3 = Color3.fromRGB(27, 28, 33)
         tab.BorderColor3 = Color3.fromRGB(0, 0, 0)
         tab.BorderSizePixel = 0
-        tab.Size = UDim2.new(0, 174, 0, 40)
+        tab.Size = UDim2.new(0, Library.is_mobile and 130 or 174, 0, Library.is_mobile and 45 or 40)
         tab.ZIndex = 2
         tab.AutoButtonColor = false
         tab.Font = Enum.Font.SourceSans
         tab.Text = ""
         tab.TextColor3 = Color3.fromRGB(0, 0, 0)
-        tab.TextSize = 14.000
+        tab.TextSize = Library.is_mobile and 16.000 or 14.000
         tab.Parent = tabs
 
         local tabCorner = Instance.new("UICorner")
@@ -516,11 +550,11 @@ function Library:CreateWindow(options)
         left_section.BackgroundTransparency = 1.000
         left_section.BorderColor3 = Color3.fromRGB(0, 0, 0)
         left_section.BorderSizePixel = 0
-        left_section.Position = UDim2.new(0.326180249, 0, 0.126760557, 0)
-        left_section.Size = UDim2.new(0, 215, 0, 372)
+        left_section.Position = UDim2.new(Library.is_mobile and 0.23 or 0.326180249, 0, 0.126760557, 0)
+        left_section.Size = UDim2.new(0, Library.is_mobile and 180 or 215, 0, 372)
         left_section.AutomaticCanvasSize = Enum.AutomaticSize.XY
         left_section.ScrollBarImageColor3 = Color3.fromRGB(0, 0, 0)
-        left_section.ScrollBarThickness = 0
+        left_section.ScrollBarThickness = Library.is_mobile and 3 or 0
         left_section.Parent = Container
 
         local leftsectionlist = Instance.new("UIListLayout")
@@ -536,11 +570,11 @@ function Library:CreateWindow(options)
         right_section.BackgroundTransparency = 1.000
         right_section.BorderColor3 = Color3.fromRGB(0, 0, 0)
         right_section.BorderSizePixel = 0
-        right_section.Position = UDim2.new(0.662374794, 0, 0.126760557, 0)
-        right_section.Size = UDim2.new(0, 215, 0, 372)
+        right_section.Position = UDim2.new(Library.is_mobile and 0.58 or 0.662374794, 0, 0.126760557, 0)
+        right_section.Size = UDim2.new(0, Library.is_mobile and 180 or 215, 0, 372)
         right_section.AutomaticCanvasSize = Enum.AutomaticSize.XY
         right_section.ScrollBarImageColor3 = Color3.fromRGB(0, 0, 0)
-        right_section.ScrollBarThickness = 0
+        right_section.ScrollBarThickness = Library.is_mobile and 3 or 0
         right_section.Parent = Container
 
         local rightsectionlist = Instance.new("UIListLayout")
@@ -1583,6 +1617,23 @@ function Library:CreateWindow(options)
 
     table.insert(Library.windows, window_data)
     return Window
+end
+
+-- Utility function for easy percentage sizing
+function Library:GetScreenSize(percent_x, percent_y)
+    percent_x = percent_x or 0.5
+    percent_y = percent_y or 0.5
+    return UDim2.fromScale(percent_x, percent_y)
+end
+
+-- Utility function to get recommended mobile size
+function Library:GetMobileSize()
+    return UDim2.fromScale(0.9, 0.8)
+end
+
+-- Utility function to get recommended desktop size  
+function Library:GetDesktopSize()
+    return UDim2.new(0, 699, 0, 426)
 end
 
 return Library
