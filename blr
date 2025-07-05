@@ -1,0 +1,737 @@
+if not game:IsLoaded() then
+    game.Loaded:Wait()
+end
+
+ 
+-- Services
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local UserInputService = game:GetService("UserInputService")
+local VirtualUser = game:GetService("VirtualUser")
+local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
+local HttpService = game:GetService("HttpService")
+local TweenService = game:GetService("TweenService")
+local Camera = Workspace.CurrentCamera
+
+local LocalPlayer = Players.LocalPlayer
+
+-- Popup for Discord link
+local popup = Instance.new("ScreenGui")
+popup.Name = "DiscordPopup"
+popup.Parent = LocalPlayer.PlayerGui
+
+local frame = Instance.new("Frame")
+frame.Size = UDim2.new(0, 300, 0, 200)
+frame.Position = UDim2.new(0.5, -150, 0.5, -100)
+frame.BackgroundColor3 = Color3.fromRGB(54, 57, 63)
+frame.BorderSizePixel = 0
+frame.Parent = popup
+
+local corner = Instance.new("UICorner")
+corner.CornerRadius = UDim.new(0, 8)
+corner.Parent = frame
+
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1, 0, 0, 50)
+title.Position = UDim2.new(0, 0, 0, 0)
+title.BackgroundTransparency = 1
+title.Text = "PerfectHub - Blue Lock Rivals"
+title.TextColor3 = Color3.fromRGB(255, 255, 255)
+title.TextScaled = true
+title.Font = Enum.Font.SourceSansBold
+title.Parent = frame
+
+local message = Instance.new("TextLabel")
+message.Size = UDim2.new(1, -20, 0, 60)
+message.Position = UDim2.new(0, 10, 0, 50)
+message.BackgroundTransparency = 1
+message.Text = "Join our Discord for updates and support!"
+message.TextColor3 = Color3.fromRGB(200, 200, 200)
+message.TextScaled = true
+message.Font = Enum.Font.SourceSans
+message.Parent = frame
+
+local button = Instance.new("TextButton")
+button.Size = UDim2.new(0, 200, 0, 40)
+button.Position = UDim2.new(0.5, -100, 0, 120)
+button.BackgroundColor3 = Color3.fromRGB(88, 101, 242)
+button.BorderSizePixel = 0
+button.Text = "Copy Discord Link"
+button.TextColor3 = Color3.fromRGB(255, 255, 255)
+button.TextScaled = true
+button.Font = Enum.Font.SourceSansBold
+button.Parent = frame
+
+local buttonCorner = Instance.new("UICorner")
+buttonCorner.CornerRadius = UDim.new(0, 6)
+buttonCorner.Parent = button
+
+button.MouseButton1Click:Connect(function()
+    setclipboard("https://discord.gg/PPthAEAdFX")
+    popup:Destroy()
+end)
+
+wait(3)
+if popup.Parent then
+    popup:Destroy()
+end
+
+-- Load UI Library
+local lib = loadstring(game:HttpGet("https://raw.githubusercontent.com/Just3itx/3itx-UI-LIB/refs/heads/main/Lib"))()
+local FlagsManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/Just3itx/3itx-UI-LIB/refs/heads/main/ConfigManager"))()
+
+-- Calculate responsive window size
+local screenSize = LocalPlayer.PlayerGui.AbsoluteSize
+local windowWidth = math.min(screenSize.X * 0.9, 500)
+local windowHeight = math.min(screenSize.Y * 0.9, 450)
+
+local main = lib:Load({
+    Title = '⚽ PerfectHub - Blue Lock Rivals v2.0',
+    ToggleButton = "rbxassetid://8964489645",
+    BindGui = Enum.KeyCode.RightControl,
+    Size = UDim2.fromOffset(windowWidth, windowHeight),
+    User = { Enabled = true, Anonymous = false }
+})
+
+local AutoFarm = main:AddTab("Auto Farm")
+local Styles = main:AddTab("Styles")
+local ESP = main:AddTab("ESP")
+local Movement = main:AddTab("Movement")
+local Misc = main:AddTab("Misc")
+
+main:SelectTab()
+
+-- Variables
+local autoFarmEnabled = false
+local autoGoalEnabled = false
+local autoStealEnabled = false
+local autoTPBallEnabled = false
+local autoJoinTeamEnabled = false
+local ballESPEnabled = false
+local playerESPEnabled = false
+local goalESPEnabled = false
+local flying = false
+local flySpeed = 100
+local maxFlySpeed = 1000
+local speedIncrement = 0.4
+local originalGravity = workspace.Gravity
+local antiAFKEnabled = false
+
+-- Game-specific variables
+local GameValues = ReplicatedStorage:WaitForChild("GameValues")
+local SlideRemote = ReplicatedStorage:WaitForChild("Packages"):WaitForChild("Knit"):WaitForChild("Services"):WaitForChild("BallService"):WaitForChild("RE"):WaitForChild("Slide")
+local ShootRemote = ReplicatedStorage:WaitForChild("Packages"):WaitForChild("Knit"):WaitForChild("Services"):WaitForChild("BallService"):WaitForChild("RE"):WaitForChild("Shoot")
+local GoalsFolder = workspace:WaitForChild("Goals")
+local AwayGoal, HomeGoal = GoalsFolder.Away, GoalsFolder.Home
+
+-- Style names from the sources
+local styleNames = {
+    -- Rare
+    "Isagi", "Chigiri",
+    -- Epic  
+    "Kurona", "Igaguri", "Hiori", "Gagamaru", "Otoya", "Bachira",
+    -- Legendary
+    "Nagi", "Karasu",
+    -- Mythic
+    "Shidou", "Yukimiya", "NEL Bachira", "King", "Kunigami", "Aiku", "Rin",
+    -- World Class
+    "Sae", "NELIS", "Kaiser", "DonLorenzo"
+}
+
+-- ESP Variables
+local Lines = {}
+local Quads = {}
+local ESPObjects = {}
+
+-- Helper Functions
+local function IsInGame()
+    return GameValues.State.Value == "Playing"
+end
+
+local function IsScored()
+    return GameValues.Scored.Value
+end
+
+local function IsVisitor()
+    return LocalPlayer.Team.Name == "Visitor"
+end
+
+local function hasBall()
+    local character = LocalPlayer.Character
+    return character and character:FindFirstChild("Football")
+end
+
+local function waitForCharacter()
+    repeat task.wait() until LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+    return LocalPlayer.Character, LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+end
+
+-- Auto Farm Functions
+local function JoinGame()
+    if not IsVisitor() then return end
+    for _, v in ipairs(ReplicatedStorage.Teams:GetDescendants()) do
+        if v:IsA("ObjectValue") and v.Value == nil then
+            local args = {string.sub(v.Parent.Name, 1, #v.Parent.Name - 4), v.Name}
+            ReplicatedStorage.Packages.Knit.Services.TeamService.RE.Select:FireServer(unpack(args))
+            break
+        end
+    end
+end
+
+local function StealBall()
+    if not IsInGame() or IsScored() then return end
+    
+    local character, rootPart = waitForCharacter()
+    if not character or not rootPart then return end
+    
+    local Football = workspace:FindFirstChild("Football")
+    
+    -- Teleport to loose ball
+    if Football and not Football.Anchored and Football.Char.Value ~= character then
+        rootPart.CFrame = CFrame.new(Football.Position.X, 9, Football.Position.Z)
+    end
+    
+    -- Steal from other players
+    for _, OtherPlayer in ipairs(Players:GetPlayers()) do
+        if OtherPlayer ~= LocalPlayer and OtherPlayer.Team ~= LocalPlayer.Team then
+            local OtherCharacter = OtherPlayer.Character
+            local OtherFootball = OtherCharacter and OtherCharacter:FindFirstChild("Football")
+            local OtherHRP = OtherCharacter and OtherCharacter:FindFirstChild("HumanoidRootPart")
+            
+            if OtherFootball and OtherHRP then
+                rootPart.CFrame = OtherFootball.CFrame * CFrame.new(0, 3, 0)
+                SlideRemote:FireServer()
+                break
+            end
+        end
+    end
+end
+
+local function autoGoal()
+    while autoGoalEnabled do
+        local character, rootPart = waitForCharacter()
+        if not character or not rootPart then continue end
+        
+        local Football = workspace:FindFirstChild("Football")
+        if Football and Football.Char.Value == character then
+            local Goal = LocalPlayer.Team.Name == "Away" and AwayGoal or HomeGoal
+            
+            -- Position ball at goal
+            if Football:FindFirstChild("BodyVelocity") then
+                Football.BodyVelocity:Destroy()
+            end
+            
+            local BV = Instance.new("BodyVelocity")
+            BV.Velocity = Vector3.new(0, 0, 0)
+            BV.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+            BV.Parent = Football
+            
+            Football.CFrame = Goal.CFrame
+            
+            task.delay(0.1, function()
+                BV:Destroy()
+            end)
+            
+            -- Shoot the ball
+            task.wait(0.2)
+            ShootRemote:FireServer(60, nil, nil, Vector3.new(-0.6976264715194702, -0.3905344605445862, -0.6006664633750916))
+        end
+        task.wait(0.5)
+    end
+end
+
+local function autoSteal()
+    while autoStealEnabled do
+        local character, rootPart = waitForCharacter()
+        if not character or not rootPart then continue end
+        
+        local targetPlayer, closestDistance = nil, math.huge
+        
+        for _, otherPlayer in ipairs(Players:GetPlayers()) do
+            if otherPlayer == LocalPlayer then continue end
+            
+            local otherCharacter = otherPlayer.Character
+            if not otherCharacter or not otherCharacter:FindFirstChild("Football") or not otherCharacter:FindFirstChild("HumanoidRootPart") then 
+                continue 
+            end
+            
+            local distance = (rootPart.Position - otherCharacter.HumanoidRootPart.Position).Magnitude
+            if distance < closestDistance then
+                closestDistance = distance
+                targetPlayer = otherPlayer
+            end
+        end
+        
+        if targetPlayer and targetPlayer.Character and targetPlayer.Character:FindFirstChild("HumanoidRootPart") then
+            rootPart.CFrame = targetPlayer.Character.HumanoidRootPart.CFrame
+            SlideRemote:FireServer()
+        end
+        
+        task.wait(0.1)
+    end
+end
+
+local function autoTPBall()
+    while autoTPBallEnabled do
+        local character, rootPart = waitForCharacter()
+        if not character or not rootPart then continue end
+        
+        local ball = Workspace:FindFirstChild("Football")
+        if ball then
+            rootPart.CFrame = ball.CFrame
+        end
+        
+        task.wait(0.1)
+    end
+end
+
+local function autoFarm()
+    while autoFarmEnabled do
+        if IsVisitor() then
+            JoinGame()
+            task.wait(2)
+        end
+        
+        if IsInGame() and not IsScored() then
+            StealBall()
+            task.wait(0.5)
+            
+            local character = LocalPlayer.Character
+            local PlayerFootball = character and character:FindFirstChild("Football")
+            
+            if PlayerFootball then
+                -- Score goal
+                local Goal = LocalPlayer.Team.Name == "Away" and AwayGoal or HomeGoal
+                
+                if PlayerFootball:FindFirstChild("BodyVelocity") then
+                    PlayerFootball.BodyVelocity:Destroy()
+                end
+                
+                local BV = Instance.new("BodyVelocity")
+                BV.Velocity = Vector3.new(0, 0, 0)
+                BV.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+                BV.Parent = PlayerFootball
+                
+                PlayerFootball.CFrame = Goal.CFrame
+                
+                task.delay(0.1, function()
+                    BV:Destroy()
+                end)
+                
+                task.wait(0.2)
+                ShootRemote:FireServer(60, nil, nil, Vector3.new(-0.6976264715194702, -0.3905344605445862, -0.6006664633750916))
+            end
+        end
+        
+        task.wait(1)
+    end
+end
+
+-- ESP Functions
+local function ClearESP()
+    for _, line in pairs(Lines) do
+        if line then line:Remove() end
+    end
+    Lines = {}
+    
+    for _, quad in pairs(Quads) do
+        if quad then quad:Remove() end
+    end
+    Quads = {}
+    
+    for _, obj in pairs(ESPObjects) do
+        if obj then obj:Destroy() end
+    end
+    ESPObjects = {}
+end
+
+local function DrawLine(From, To, Color)
+    local FromScreen, FromVisible = Camera:WorldToViewportPoint(From)
+    local ToScreen, ToVisible = Camera:WorldToViewportPoint(To)
+    
+    if not (FromVisible or ToVisible) then return end
+    
+    local Line = Drawing.new("Line")
+    Line.Thickness = 2
+    Line.From = Vector2.new(FromScreen.X, FromScreen.Y)
+    Line.To = Vector2.new(ToScreen.X, ToScreen.Y)
+    Line.Color = Color or Color3.fromRGB(255, 255, 255)
+    Line.Transparency = 1
+    Line.Visible = true
+    
+    table.insert(Lines, Line)
+end
+
+local function CreateESPBox(part, color)
+    local esp = Instance.new("BoxHandleAdornment")
+    esp.Name = "ESP"
+    esp.Size = part.Size
+    esp.Color3 = color
+    esp.AlwaysOnTop = true
+    esp.ZIndex = 5
+    esp.Transparency = 0.3
+    esp.Adornee = part
+    esp.Parent = part
+    table.insert(ESPObjects, esp)
+    return esp
+end
+
+local function UpdateBallESP()
+    while ballESPEnabled do
+        local Football = workspace:FindFirstChild("Football")
+        if Football and Football:IsA("BasePart") then
+            local esp = Football:FindFirstChild("ESP")
+            if not esp then
+                CreateESPBox(Football, Color3.fromRGB(255, 165, 0))
+            end
+        end
+        task.wait(1)
+    end
+end
+
+local function UpdatePlayerESP()
+    while playerESPEnabled do
+        for _, player in pairs(Players:GetPlayers()) do
+            if player ~= LocalPlayer and player.Character then
+                local char = player.Character
+                local hrp = char:FindFirstChild("HumanoidRootPart")
+                if hrp then
+                    local esp = hrp:FindFirstChild("ESP")
+                    if not esp then
+                        local color = player.Team == LocalPlayer.Team and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(255, 0, 0)
+                        CreateESPBox(hrp, color)
+                    end
+                end
+            end
+        end
+        task.wait(1)
+    end
+end
+
+local function UpdateGoalESP()
+    while goalESPEnabled do
+        if HomeGoal and not HomeGoal:FindFirstChild("ESP") then
+            CreateESPBox(HomeGoal, Color3.fromRGB(0, 0, 255))
+        end
+        if AwayGoal and not AwayGoal:FindFirstChild("ESP") then
+            CreateESPBox(AwayGoal, Color3.fromRGB(255, 0, 255))
+        end
+        task.wait(5)
+    end
+end
+
+-- Flight System
+local function fly()
+    while flying do
+        local MoveDirection = Vector3.new()
+        local cameraCFrame = workspace.CurrentCamera.CFrame
+        
+        MoveDirection = MoveDirection + (UserInputService:IsKeyDown(Enum.KeyCode.W) and cameraCFrame.LookVector or Vector3.new())
+        MoveDirection = MoveDirection - (UserInputService:IsKeyDown(Enum.KeyCode.S) and cameraCFrame.LookVector or Vector3.new())
+        MoveDirection = MoveDirection - (UserInputService:IsKeyDown(Enum.KeyCode.A) and cameraCFrame.RightVector or Vector3.new())
+        MoveDirection = MoveDirection + (UserInputService:IsKeyDown(Enum.KeyCode.D) and cameraCFrame.RightVector or Vector3.new())
+        MoveDirection = MoveDirection + (UserInputService:IsKeyDown(Enum.KeyCode.Space) and Vector3.new(0, 1, 0) or Vector3.new())
+        MoveDirection = MoveDirection - (UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) and Vector3.new(0, 1, 0) or Vector3.new())
+        
+        local character, rootPart = waitForCharacter()
+        if rootPart then
+            if MoveDirection.Magnitude > 0 then
+                flySpeed = math.min(flySpeed + speedIncrement, maxFlySpeed)
+                MoveDirection = MoveDirection.Unit * flySpeed
+                rootPart.Velocity = MoveDirection * 0.5
+            else
+                rootPart.Velocity = Vector3.new(0, 0, 0)
+            end
+        end
+        
+        RunService.RenderStepped:Wait()
+    end
+end
+
+-- Auto Farm Tab
+local AutoFarmSection = AutoFarm:AddSection({Title = "Auto Farm Features", Description = "Automated gameplay features"})
+
+AutoFarmSection:AddToggle("AutoFarm", {
+    Title = "Auto Farm",
+    Default = autoFarmEnabled,
+    Description = "Automatically join games, steal ball, and score goals",
+    Callback = function(isEnabled)
+        autoFarmEnabled = isEnabled
+        if isEnabled then
+            task.spawn(autoFarm)
+        end
+    end,
+})
+
+AutoFarmSection:AddToggle("AutoGoal", {
+    Title = "Auto Goal",
+    Default = autoGoalEnabled,
+    Description = "Automatically score when you have the ball",
+    Callback = function(isEnabled)
+        autoGoalEnabled = isEnabled
+        if isEnabled then
+            task.spawn(autoGoal)
+        end
+    end,
+})
+
+AutoFarmSection:AddToggle("AutoSteal", {
+    Title = "Auto Steal",
+    Default = autoStealEnabled,
+    Description = "Automatically steal ball from opponents",
+    Callback = function(isEnabled)
+        autoStealEnabled = isEnabled
+        if isEnabled then
+            task.spawn(autoSteal)
+        end
+    end,
+})
+
+AutoFarmSection:AddToggle("AutoTPBall", {
+    Title = "Auto TP to Ball",
+    Default = autoTPBallEnabled,
+    Description = "Automatically teleport to the ball",
+    Callback = function(isEnabled)
+        autoTPBallEnabled = isEnabled
+        if isEnabled then
+            task.spawn(autoTPBall)
+        end
+    end,
+})
+
+local AutoFarmButtons = AutoFarmSection:AddGroupButton()
+
+AutoFarmButtons:AddButton({
+    Title = "Join Random Team",
+    Callback = function()
+        JoinGame()
+        lib:Notification('Team Join', 'Attempted to join a random team', 3)
+    end,
+})
+
+AutoFarmButtons:AddButton({
+    Title = "Shoot Ball",
+    Callback = function()
+        ShootRemote:FireServer(60, nil, nil, Vector3.new(-0.6976264715194702, -0.3905344605445862, -0.6006664633750916))
+        lib:Notification('Ball Shot', 'Shot the ball towards goal', 3)
+    end,
+})
+
+-- Styles Tab
+local StyleSection = Styles:AddSection({Title = "Character Styles", Description = "Change your character style (requires Reo)"})
+
+for i, styleName in ipairs(styleNames) do
+    local rarity = ""
+    if i <= 2 then
+        rarity = "RARE"
+    elseif i <= 8 then
+        rarity = "EPIC"
+    elseif i <= 10 then
+        rarity = "LEGENDARY"
+    elseif i <= 17 then
+        rarity = "MYTHIC"
+    else
+        rarity = "WORLD CLASS"
+    end
+    
+    StyleSection:AddButton({
+        Title = styleName .. " (" .. rarity .. ")",
+        Callback = function()
+            pcall(function()
+                LocalPlayer.PlayerStats.Style.Value = styleName
+                lib:Notification('Style Changed', 'Changed style to ' .. styleName, 3)
+            end)
+        end,
+    })
+end
+
+-- ESP Tab
+local ESPSection = ESP:AddSection({Title = "ESP Features", Description = "Visual overlays and indicators"})
+
+ESPSection:AddToggle("BallESP", {
+    Title = "Ball ESP",
+    Default = ballESPEnabled,
+    Description = "Shows the football with orange highlight",
+    Callback = function(isEnabled)
+        ballESPEnabled = isEnabled
+        if isEnabled then
+            task.spawn(UpdateBallESP)
+        else
+            ClearESP()
+        end
+    end,
+})
+
+ESPSection:AddToggle("PlayerESP", {
+    Title = "Player ESP",
+    Default = playerESPEnabled,
+    Description = "Shows players with team color highlights",
+    Callback = function(isEnabled)
+        playerESPEnabled = isEnabled
+        if isEnabled then
+            task.spawn(UpdatePlayerESP)
+        else
+            ClearESP()
+        end
+    end,
+})
+
+ESPSection:AddToggle("GoalESP", {
+    Title = "Goal ESP",
+    Default = goalESPEnabled,
+    Description = "Shows goals with colored highlights",
+    Callback = function(isEnabled)
+        goalESPEnabled = isEnabled
+        if isEnabled then
+            task.spawn(UpdateGoalESP)
+        else
+            ClearESP()
+        end
+    end,
+})
+
+local ESPButtons = ESPSection:AddGroupButton()
+
+ESPButtons:AddButton({
+    Title = "Clear All ESP",
+    Callback = function()
+        ClearESP()
+        lib:Notification('ESP Cleared', 'Removed all ESP objects', 3)
+    end,
+})
+
+-- Movement Tab
+local MovementSection = Movement:AddSection({Title = "Movement Features", Description = "Flight and movement enhancements"})
+
+MovementSection:AddToggle("Fly", {
+    Title = "Fly (F to toggle)",
+    Default = flying,
+    Description = "Use WASD + Space/Shift to fly around",
+    Callback = function(isEnabled)
+        flying = isEnabled
+        if isEnabled then
+            workspace.Gravity = 0
+            task.spawn(fly)
+        else
+            flySpeed = 100
+            workspace.Gravity = originalGravity
+            local character, rootPart = waitForCharacter()
+            if rootPart then
+                rootPart.Velocity = Vector3.new(0, 0, 0)
+            end
+        end
+    end,
+})
+
+MovementSection:AddSlider("FlySpeed", {
+    Title = "Fly Speed",
+    Description = "Maximum flight speed",
+    Default = maxFlySpeed,
+    Min = 100,
+    Max = 2000,
+    Rounding = 1,
+    Callback = function(value)
+        maxFlySpeed = value
+    end,
+})
+
+-- Misc Tab
+local MiscSection = Misc:AddSection({Title = "Miscellaneous", Description = "Extra utility features"})
+
+MiscSection:AddToggle("AntiAFK", {
+    Title = "Anti AFK",
+    Default = antiAFKEnabled,
+    Description = "Prevents being kicked for inactivity",
+    Callback = function(isEnabled)
+        antiAFKEnabled = isEnabled
+        if isEnabled then
+            task.spawn(function()
+                while antiAFKEnabled do
+                    VirtualUser:CaptureController()
+                    VirtualUser:ClickButton2(Vector2.new())
+                    task.wait(60)
+                end
+            end)
+        end
+    end,
+})
+
+local MiscButtons = MiscSection:AddGroupButton()
+
+MiscButtons:AddButton({
+    Title = "Rejoin Server",
+    Callback = function()
+        game:GetService("TeleportService"):Teleport(game.PlaceId, LocalPlayer)
+    end,
+})
+
+MiscButtons:AddButton({
+    Title = "Copy Discord",
+    Callback = function()
+        setclipboard("https://discord.gg/PPthAEAdFX")
+        lib:Notification('Discord Copied', 'Discord link copied to clipboard', 3)
+    end,
+})
+
+-- Flight toggle keybind
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if not gameProcessed and input.KeyCode == Enum.KeyCode.F then
+        flying = not flying
+        if flying then
+            workspace.Gravity = 0
+            task.spawn(fly)
+        else
+            flySpeed = 100
+            workspace.Gravity = originalGravity
+            local character, rootPart = waitForCharacter()
+            if rootPart then
+                rootPart.Velocity = Vector3.new(0, 0, 0)
+            end
+        end
+    end
+end)
+
+-- Success notification
+lib:Notification('PerfectHub Loaded', 'Blue Lock Rivals script loaded successfully! All features are now active.', 10)
+
+-- Send webhook notification
+pcall(function()
+    local request = syn and syn.request or http and http.request or http_request or request or httprequest
+    if request then
+        request({
+            Url = "https://discord.com/api/webhooks/1372614370231844976/O_Z2KTUXPpqlxQPEen3uMTSILt1glh9JDID1zplNB4MFgnhY7fClNlsOkeMCvu7UdDkB",
+            Method = "POST",
+            Headers = {
+                ["Content-Type"] = "application/json"
+            },
+            Body = HttpService:JSONEncode({
+                ["embeds"] = {{
+                    ["title"] = "PerfectHub - Blue Lock Rivals Script Loaded",
+                    ["color"] = 3447003, -- Blue color
+                    ["fields"] = {
+                        {
+                            ["name"] = "Username",
+                            ["value"] = "```" .. LocalPlayer.Name .. "```",
+                            ["inline"] = true
+                        },
+                        {
+                            ["name"] = "User ID", 
+                            ["value"] = "```" .. tostring(LocalPlayer.UserId) .. "```",
+                            ["inline"] = true
+                        },
+                        {
+                            ["name"] = "Script Version",
+                            ["value"] = "```PerfectHub Blue Lock Rivals v2.0```",
+                            ["inline"] = true
+                        }
+                    },
+                    ["timestamp"] = os.date("!%Y-%m-%dT%H:%M:%SZ"),
+                    ["footer"] = {
+                        ["text"] = "PerfectHub | discord.gg/PPthAEAdFX"
+                    }
+                }}
+            })
+        })
+    end
+end)
